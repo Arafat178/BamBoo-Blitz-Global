@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bamboo Blitz</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: 'Arial', sans-serif;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="700" height="800"></canvas>
+
+    <script type="module">
+        // Global variables for Firebase configuration provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Note: The original Python code loaded assets from a local file system.
+        // For this web version, we need to load them from a URL.
+        // As per the original code, the file paths are kept as they were.
+        const API_URL = "https://bambooblitz-413ec-default-rtdb.asia-southeast1.firebasedatabase.app/scores.json";
+
+        let top_scores = [];
+        let scoresLoaded = false; // Added this new variable
+
+        // Game state variables
+        let bambooY = 0;
+        let bamboo1X = 100;
+        let bamboo2X = 300;
+        let bamboo3X = 500;
+
+        let doriX = 60;
+        let doriY = 300;
+
+        let left_show = true;
+        let right_show = false;
+        let key_down = false;
+        let y_cng = 0;
+
+        let mouse_lx1 = 75; // fixed
+        let mouse_lx2 = 275; // fixed
+        let mouse_lx3 = 475; // fixed
+
+        let mouse_rx1 = 147; // fixed
+        let mouse_rx2 = 347; // fixed
+        let mouse_rx3 = 547; // fixed
+
+        let mouse_ly1 = -50;
+        let mouse_ly2 = -250;
+        let mouse_ly3 = -400;
+
+        let mouse_ry1 = -400;
+        let mouse_ry2 = -50;
+        let mouse_ry3 = -200;
+
+        let my_cng = 3; // change
+        let last_speed_milestone = 0;
+
+        let gameOver = false;
+        let gmusic = false;
+        let fln_dori = 5; // change
+
+        let score_value = 0;
+        let score_save = false;
+
+        let gameStart = false;
+        let active = false;
+        let player_name = "";
+
+        // UI Element Rects
+        const button_start = { x: 200, y: 690, w: 250, h: 80 };
+        const button_pad = { x: 0, y: 600, w: 700, h: 200 };
+        const button_left = { x: 470, y: 660, w: 100, h: 80 };
+        const button_right = { x: 580, y: 660, w: 100, h: 80 };
+        const button_up = { x: 30, y: 630, w: 100, h: 70 };
+        const button_down = { x: 30, y: 710, w: 100, h: 70 };
+        const button_continue = { x: 200, y: 640, w: 270, h: 80 };
+
+        const input_box = { x: 150, y: 350, w: 400, h: 60 };
+        let color_inactive = 'rgb(100, 100, 100)';
+        let color_active = 'rgb(0, 200, 0)';
+        let color = color_inactive;
+
+        // Assets (Images)
+        const bambooImg = new Image();
+        bambooImg.src = 'assets/images/bamboo.png';
+
+        const dorileftImg = new Image();
+        dorileftImg.src = 'assets/images/dori2.png';
+
+        const dorirightImg = new Image();
+        dorirightImg.src = 'assets/images/dori1.png';
+
+        const mouseleftImg = new Image();
+        mouseleftImg.src = 'assets/images/mouse2.png';
+
+        const mouserightImg = new Image();
+        mouserightImg.src = 'assets/images/mouse1.png';
+
+        let assetsLoaded = false;
+        let assetsToLoad = 5;
+
+        const assetLoaded = () => {
+            assetsToLoad--;
+            if (assetsToLoad === 0) {
+                assetsLoaded = true;
+            }
+        };
+
+        bambooImg.onload = assetLoaded;
+        dorileftImg.onload = assetLoaded;
+        dorirightImg.onload = assetLoaded;
+        mouseleftImg.onload = assetLoaded;
+        mouserightImg.onload = assetLoaded;
+
+        // Sounds
+        const backgroundMusic = new Audio('assets/sounds/zindegi.ogg');
+        backgroundMusic.loop = true;
+        backgroundMusic.volume = 0.3;
+
+        const jumpSound = new Audio('assets/sounds/coinS.ogg');
+        const gameOverSound = new Audio('assets/sounds/falling-game-over.ogg');
+
+        // Functions to draw images on canvas
+        const bambooXY1 = (x, y) => ctx.drawImage(bambooImg, x, y);
+        const bambooXY2 = (x, y) => ctx.drawImage(bambooImg, x, y);
+        const bambooXY3 = (x, y) => ctx.drawImage(bambooImg, x, y);
+
+        const dorileftXY = (x, y) => ctx.drawImage(dorileftImg, x, y);
+        const dorirightXY = (x, y) => ctx.drawImage(dorirightImg, x, y);
+
+        const mouselXY1 = (x, y) => ctx.drawImage(mouseleftImg, x, y);
+        const mouselXY2 = (x, y) => ctx.drawImage(mouseleftImg, x, y);
+        const mouselXY3 = (x, y) => ctx.drawImage(mouseleftImg, x, y);
+
+        const mouserXY1 = (x, y) => ctx.drawImage(mouserightImg, x, y);
+        const mouserXY2 = (x, y) => ctx.drawImage(mouserightImg, x, y);
+        const mouserXY3 = (x, y) => ctx.drawImage(mouserightImg, x, y);
+
+        const gameXY = (x, y) => {
+            ctx.font = '80px Arial';
+            ctx.fillStyle = 'rgb(110, 0, 0)';
+            ctx.fillText('GAME OVER', x, y);
+        };
+
+        const LeaderboardXY = (x, y) => {
+            ctx.font = '32px Arial';
+            ctx.fillStyle = 'rgb(150, 100, 0)';
+            ctx.fillText('LEADERBOARD', x, y);
+        };
+
+        const scoreXY = (x, y, score) => {
+            ctx.font = '32px Arial';
+            ctx.fillStyle = 'rgb(100, 0, 100)';
+            ctx.fillText(`SCORE: ${score}`, x, y);
+        };
+
+        const drawRect = (rect, color, borderRadius) => {
+            ctx.fillStyle = color;
+            if (borderRadius) {
+                const { x, y, w, h } = rect;
+                ctx.beginPath();
+                ctx.moveTo(x + borderRadius, y);
+                ctx.lineTo(x + w - borderRadius, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + borderRadius);
+                ctx.lineTo(x + w, y + h - borderRadius);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - borderRadius, y + h);
+                ctx.lineTo(x + borderRadius, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - borderRadius);
+                ctx.lineTo(x, y + borderRadius);
+                ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+            }
+        };
+
+        const drawStartButton = () => {
+            drawRect(button_start, 'rgb(10, 200, 10)', 20);
+            ctx.font = '40px Arial';
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillText('START', button_start.x + 50, button_start.y + 55);
+        };
+
+        const drawButtonPad = () => {
+            drawRect(button_pad, 'rgb(200, 150, 200)');
+        };
+
+        const drawButtons = () => {
+            ctx.font = '32px Arial';
+
+            drawRect(button_left, 'rgb(100, 100, 100)', 20);
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillText('<<', button_left.x + 30, button_left.y + 55);
+
+            drawRect(button_right, 'rgb(100, 100, 100)', 20);
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillText('>>', button_right.x + 35, button_right.y + 55);
+
+            drawRect(button_up, 'rgb(100, 100, 100)', 20);
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillText('up', button_up.x + 25, button_up.y + 45);
+
+            drawRect(button_down, 'rgb(100, 100, 100)', 20);
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillText('down', button_down.x + 15, button_down.y + 45);
+        };
+
+        const drawContinueButton = () => {
+            drawRect(button_continue, 'rgb(250, 100, 10)', 30);
+            ctx.font = '32px Arial';
+            ctx.fillStyle = 'rgb(0, 0, 0)';
+            ctx.fillText('Continue', button_continue.x + 40, button_continue.y + 55);
+        };
+
+        const getRankStr = (index) => {
+            if (index === 0) return "1st";
+            if (index === 1) return "2nd";
+            if (index === 2) return "3rd";
+            return `${index + 1}th`;
+        };
+
+        const keys_rows = [
+            ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+            ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+            ["Z", "X", "C", "V", "B", "N", "M", "DEL", "ENT"]
+        ];
+
+        let key_buttons = [];
+        const key_width = 60;
+        const key_height = 60;
+        const padding = 5;
+        const start_x = 50;
+        const start_y = 450;
+
+        for (let row_idx = 0; row_idx < keys_rows.length; row_idx++) {
+            const row = keys_rows[row_idx];
+            for (let col_idx = 0; col_idx < row.length; col_idx++) {
+                const k = row[col_idx];
+                const rect = {
+                    x: start_x + col_idx * (key_width + padding),
+                    y: start_y + row_idx * (key_height + padding),
+                    w: key_width,
+                    h: key_height
+                };
+                key_buttons.push({ k, rect });
+            }
+        }
+
+        const save_score = async (playerName, scoreValue) => {
+            if (!playerName || playerName.trim() === "") playerName = "Untitled";
+            if (!scoreValue || typeof scoreValue !== "number") scoreValue = 0;
+
+            try {
+            const data = { name: playerName, score: scoreValue };
+            await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: { 'Content-Type': 'application/json' }
+            });
+
+            await load_scores();
+            score_save = true;
+            } catch (e) {
+            console.error("Save failed:", e);
+            scoresLoaded = true;
+            score_save = true;
+            }
+            };
+
+
+
+
+        const load_scores = async () => {
+    try {
+        const resp = await fetch(API_URL);
+        const data = await resp.json();
+        console.log("Firebase data:", data); // debug
+
+        if (data && typeof data === 'object') {
+            // Convert Firebase object to array, filter invalid entries
+            const scores = Object.values(data)
+                .filter(entry => entry && entry.name && typeof entry.score === 'number')
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5); // top 5
+
+            top_scores = scores.map(s => [s.name, s.score]);
+        } else {
+            top_scores = [];
+        }
+
+        scoresLoaded = true;
+    } catch (e) {
+        console.error("Failed to load scores:", e);
+        top_scores = [];
+        scoresLoaded = true;
+    }
+};
+
+
+
+        const gameLoop = () => {
+            ctx.fillStyle = 'rgb(255, 255, 255)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!assetsLoaded) {
+                ctx.font = '30px Arial';
+                ctx.fillStyle = 'black';
+                ctx.fillText('Loading assets...', 250, 400);
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            if (gameOver === false && gameStart === true) {
+                doriY += y_cng;
+                if (doriY <= 100) doriY = 100;
+                if (doriY >= 480) doriY = 480;
+
+                mouse_ly1 += my_cng;
+                if (mouse_ly1 >= 650) { mouse_ly1 = -30; score_value++; }
+                mouse_ly2 += my_cng;
+                if (mouse_ly2 >= 650) { mouse_ly2 = -30; score_value++; }
+                mouse_ly3 += my_cng;
+                if (mouse_ly3 >= 650) { mouse_ly3 = -30; score_value++; }
+
+                mouse_ry1 += my_cng;
+                if (mouse_ry1 >= 650) { mouse_ry1 = -30; score_value++; }
+                mouse_ry2 += my_cng;
+                if (mouse_ry2 >= 650) { mouse_ry2 = -30; score_value++; }
+                mouse_ry3 += my_cng;
+                if (mouse_ry3 >= 650) { mouse_ry3 = -30; score_value++; }
+
+                const speed_milestone = Math.floor(score_value / 20);
+                if (speed_milestone > last_speed_milestone) {
+                    my_cng += 1;
+                    last_speed_milestone = speed_milestone;
+                }
+            }
+
+            const checkCollision = (doriX, doriY, mouseX, mouseY) => {
+                // Check if the character's bounding box overlaps with a mouse's bounding box
+                const doriRect = { x: doriX, y: doriY, w: 70, h: 100 }; // rough dimensions
+                const mouseRect = { x: mouseX, y: mouseY, w: 32, h: 32 }; // rough dimensions
+                return (doriRect.x < mouseRect.x + mouseRect.w &&
+                        doriRect.x + doriRect.w > mouseRect.x &&
+                        doriRect.y < mouseRect.y + mouseRect.h &&
+                        doriRect.y + doriRect.h > mouseRect.y);
+            };
+
+            const isColliding =
+                checkCollision(doriX, doriY, mouse_lx1, mouse_ly1) ||
+                checkCollision(doriX, doriY, mouse_lx2, mouse_ly2) ||
+                checkCollision(doriX, doriY, mouse_lx3, mouse_ly3) ||
+                checkCollision(doriX, doriY, mouse_rx1, mouse_ry1) ||
+                checkCollision(doriX, doriY, mouse_rx2, mouse_ry2) ||
+                checkCollision(doriX, doriY, mouse_rx3, mouse_ry3);
+
+            if (isColliding) {
+                gameOver = true;
+            }
+
+
+            if (gameOver === true && gmusic === false) {
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+                gameOverSound.play();
+                if (doriX === 60) doriX = 45;
+                if (doriX === 261) doriX = 246;
+                if (doriX === 462) doriX = 447;
+                if (doriX === 121) doriX = 136;
+                if (doriX === 322) doriX = 338;
+                if (doriX === 523) doriX = 538;
+                gmusic = true;
+            }
+
+            if (gameOver === true) {
+                doriY += fln_dori;
+            }
+
+            bambooXY1(bamboo1X, bambooY);
+            bambooXY2(bamboo2X, bambooY);
+            bambooXY3(bamboo3X, bambooY);
+
+            mouselXY1(mouse_lx1, mouse_ly1);
+            mouselXY2(mouse_lx2, mouse_ly2);
+            mouselXY3(mouse_lx3, mouse_ly3);
+
+            mouserXY1(mouse_rx1, mouse_ry1);
+            mouserXY2(mouse_rx2, mouse_ry2);
+            mouserXY3(mouse_rx3, mouse_ry3);
+
+            if (left_show) {
+                dorileftXY(doriX, doriY);
+            }
+            if (right_show) {
+                dorirightXY(doriX, doriY);
+            }
+
+            scoreXY(500, 30, score_value);
+            drawButtonPad();
+
+            if (doriY >= 650) {
+                gameXY(100, 250);
+                LeaderboardXY(180,630)
+                if (score_save === false) {
+                    save_score(player_name, score_value);
+                    load_scores();
+                    score_save = true;
+                }
+                // Only show scores if they have been loaded
+                if (scoresLoaded) {
+                    let y_offset = 664;
+                    ctx.font = '24px Arial';
+                    ctx.fillStyle = 'rgb(0, 0, 150)';
+                    for (let idx = 0; idx < top_scores.length; idx++) {
+                        const [name, score] = top_scores[idx];
+                        const rank = getRankStr(idx);
+                        ctx.fillText(`${rank}: ${name} - ${score}`, 180, y_offset);
+                        y_offset += 30;
+                    }
+                } else {
+                    // Show a loading message while waiting for scores to load
+                    ctx.font = '32px Arial';
+                    ctx.fillStyle = 'rgb(100, 100, 100)';
+                    ctx.fillText('Loading Top 5 scores...', 220, 680);
+                }
+
+                }
+
+            if (gameStart) {
+                drawButtons();
+            } else {
+                drawStartButton();
+                drawRect(input_box, 'rgb(200, 200, 200)');
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(input_box.x, input_box.y, input_box.w, input_box.h);
+
+                ctx.font = '50px Arial';
+                if (player_name === "" && !active) {
+                    ctx.fillStyle = 'rgb(150, 150, 150)';
+                    ctx.fillText("Enter your name", input_box.x + 5, input_box.y + 45);
+                } else {
+                    ctx.fillStyle = 'rgb(0, 0, 0)';
+                    ctx.fillText(player_name, input_box.x + 5, input_box.y + 45);
+                }
+
+                for (let { k, rect } of key_buttons) {
+                    drawRect(rect, 'rgb(180, 180, 180)', 8);
+                    ctx.font = '40px Arial';
+                    ctx.fillStyle = 'rgb(0, 0, 0)';
+                    ctx.fillText(k, rect.x + 10, rect.y + 40);
+                }
+            }
+            requestAnimationFrame(gameLoop);
+        };
+
+        const checkCollision = (point, rect) => {
+            return point.x >= rect.x && point.x <= rect.x + rect.w &&
+                   point.y >= rect.y && point.y <= rect.y + rect.h;
+        };
+
+        const handleRightMovement = () => {
+            jumpSound.play();
+            if (doriX <= 523) {
+                if (doriX === 60 || doriX === 261 || doriX === 462) {
+                    doriX += 61;
+                    left_show = false;
+                    right_show = true;
+                } else if (doriX === 121 || doriX === 322) {
+                    doriX += 140;
+                    left_show = true;
+                    right_show = false;
+                }
+            }
+        };
+
+        const handleLeftMovement = () => {
+            jumpSound.play();
+            if (doriX >= 121) {
+                if (doriX === 60 || doriX === 261 || doriX === 462) {
+                    doriX -= 140;
+                    left_show = false;
+                    right_show = true;
+                } else if (doriX === 121 || doriX === 322 || doriX === 523) {
+                    doriX -= 61;
+                    left_show = true;
+                    right_show = false;
+                }
+            }
+        };
+
+        // Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (gameOver === false && gameStart === true) {
+                if (e.key === 'ArrowRight') handleRightMovement();
+                if (e.key === 'ArrowLeft') handleLeftMovement();
+                if (e.key === 'ArrowUp') y_cng = -3;
+                if (e.key === 'ArrowDown') y_cng = 3;
+            }
+            if (active && gameStart === false) {
+                if (e.key === 'Enter') {
+                    if (player_name.trim() !== "") {
+                        gameStart = true;
+                        backgroundMusic.play();
+                    }
+                } else if (e.key === 'Backspace') {
+                    player_name = player_name.slice(0, -1);
+                } else {
+                    if (e.key.length === 1 && player_name.length < 16) {
+                        player_name += e.key;
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            y_cng = 0;
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const mousePos = { x: mouseX, y: mouseY };
+
+            if (checkCollision(mousePos, input_box)) {
+                active = true;
+                color = color_active;
+            } else {
+                active = false;
+                color = color_inactive;
+            }
+
+            if (checkCollision(mousePos, button_start) && !gameStart) {
+                if (player_name.trim() !== "") {
+                    gameStart = true;
+                    backgroundMusic.play();
+                }
+            }
+
+            if (checkCollision(mousePos, button_right) && doriX <= 523 && gameStart) {
+                handleRightMovement();
+            }
+
+            if (checkCollision(mousePos, button_left) && doriX >= 121 && gameStart) {
+                handleLeftMovement();
+            }
+
+            if (checkCollision(mousePos, button_up) && gameStart) {
+                y_cng = -3;
+            }
+
+            if (checkCollision(mousePos, button_down) && gameStart) {
+                y_cng = 3;
+            }
+
+            if (!gameStart) {
+                for (let { k, rect } of key_buttons) {
+                    if (checkCollision(mousePos, rect)) {
+                        if (k === "DEL") {
+                            player_name = player_name.slice(0, -1);
+                        } else if (k === "ENT") {
+                            if (player_name.trim() !== "") {
+                                gameStart = true;
+                                backgroundMusic.play();
+                            }
+                        } else {
+                            if (player_name.length < 16) {
+                                player_name += k;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            y_cng = 0;
+        });
+
+        window.onload = () => {
+             // Use requestAnimationFrame for the main game loop
+             gameLoop();
+        };
+    </script>
+</body>
+</html>
