@@ -2,34 +2,44 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Bamboo Blitz</title>
     <style>
+        /* Make the body take up the full screen with no scrollbars */
         body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111; /* A dark background helps focus on the game */
+            font-family: 'Arial', sans-serif;
+        }
+
+        /* Create a container to center the canvas */
+        #game-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-            font-family: 'Arial', sans-serif;
-        }
-        canvas {
-            border: 2px solid #333;
-            background-color: #fff;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-            border-radius: 10px;
-            /* ✅ Responsive scaling for phone support */
             width: 100vw;
             height: 100vh;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain; /* aspect ratio বজায় রাখবে */
+        }
+
+        /* Make the canvas responsive */
+        canvas {
+            /* The width and height attributes in the HTML tag define the game's internal resolution. */
+            /* The CSS width and height control the displayed size. */
+            width: 100%;
+            height: 100%;
+            /* This is the key: it scales the canvas to fit the container while maintaining the aspect ratio. */
+            object-fit: contain;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="700" height="1000"></canvas>
+    <!-- Wrap the canvas in a container for better centering and scaling control -->
+    <div id="game-container">
+        <canvas id="gameCanvas" width="700" height="800"></canvas>
+    </div>
 
     <script type="module">
         // Global variables for Firebase configuration provided by the environment
@@ -39,18 +49,6 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-
-        // Add a resize handler
-        const resizeCanvas = () => {
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
-        };
-
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas(); // Initial call
 
         // Note: The original Python code loaded assets from a local file system.
         // For this web version, we need to load them from a URL.
@@ -106,7 +104,7 @@
 
         // UI Element Rects
         const button_start = { x: 200, y: 690, w: 250, h: 80 };
-        const button_pad = { x: 0, y: 600, w: 700, h: 400 };
+        const button_pad = { x: 0, y: 600, w: 700, h: 200 };
         const button_left = { x: 470, y: 660, w: 100, h: 80 };
         const button_right = { x: 580, y: 660, w: 100, h: 80 };
         const button_up = { x: 30, y: 630, w: 100, h: 70 };
@@ -119,6 +117,7 @@
         let color = color_inactive;
 
         // Assets (Images)
+        // IMPORTANT: Ensure these asset paths are correct relative to where your HTML file is hosted.
         const bambooImg = new Image();
         bambooImg.src = 'assets/images/bamboo.png';
 
@@ -151,6 +150,7 @@
         mouserightImg.onload = assetLoaded;
 
         // Sounds
+        // IMPORTANT: Ensure these asset paths are correct.
         const backgroundMusic = new Audio('assets/sounds/zindegi.ogg');
         backgroundMusic.loop = true;
         backgroundMusic.volume = 0.3;
@@ -290,52 +290,43 @@
             if (!scoreValue || typeof scoreValue !== "number") scoreValue = 0;
 
             try {
-            const data = { name: playerName, score: scoreValue };
-            await fetch(API_URL, {
-            method: 'POST',
-            body: JSON.stringify(data),
-            headers: { 'Content-Type': 'application/json' }
-            });
+                const data = { name: playerName, score: scoreValue };
+                await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: { 'Content-Type': 'application/json' }
+                });
 
-            await load_scores();
-            score_save = true;
+                await load_scores();
+                score_save = true;
             } catch (e) {
-            console.error("Save failed:", e);
-            scoresLoaded = true;
-            score_save = true;
+                console.error("Save failed:", e);
+                scoresLoaded = true;
+                score_save = true;
             }
-            };
-
-
-
+        };
 
         const load_scores = async () => {
-    try {
-        const resp = await fetch(API_URL);
-        const data = await resp.json();
-        console.log("Firebase data:", data); // debug
+            try {
+                const resp = await fetch(API_URL);
+                const data = await resp.json();
 
-        if (data && typeof data === 'object') {
-            // Convert Firebase object to array, filter invalid entries
-            const scores = Object.values(data)
-                .filter(entry => entry && entry.name && typeof entry.score === 'number')
-                .sort((a, b) => b.score - a.score)
-                .slice(0, 5); // top 5
-
-            top_scores = scores.map(s => [s.name, s.score]);
-        } else {
-            top_scores = [];
-        }
-
-        scoresLoaded = true;
-    } catch (e) {
-        console.error("Failed to load scores:", e);
-        top_scores = [];
-        scoresLoaded = true;
-    }
-};
-
-
+                if (data && typeof data === 'object') {
+                    const scores = Object.values(data)
+                        .filter(entry => entry && entry.name && typeof entry.score === 'number')
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 5); // top 5
+                    top_scores = scores.map(s => [s.name, s.score]);
+                } else {
+                    top_scores = [];
+                }
+                scoresLoaded = true;
+            } catch (e) {
+                console.error("Failed to load scores:", e);
+                top_scores = [];
+                scoresLoaded = true;
+            }
+        };
 
         const gameLoop = () => {
             ctx.fillStyle = 'rgb(255, 255, 255)';
@@ -375,10 +366,9 @@
                 }
             }
 
-            const checkCollision = (doriX, doriY, mouseX, mouseY) => {
-                // Check if the character's bounding box overlaps with a mouse's bounding box
-                const doriRect = { x: doriX, y: doriY, w: 70, h: 100 }; // rough dimensions
-                const mouseRect = { x: mouseX, y: mouseY, w: 32, h: 32 }; // rough dimensions
+            const checkObjectCollision = (doriX, doriY, mouseX, mouseY) => {
+                const doriRect = { x: doriX, y: doriY, w: 70, h: 100 };
+                const mouseRect = { x: mouseX, y: mouseY, w: 32, h: 32 };
                 return (doriRect.x < mouseRect.x + mouseRect.w &&
                         doriRect.x + doriRect.w > mouseRect.x &&
                         doriRect.y < mouseRect.y + mouseRect.h &&
@@ -386,17 +376,16 @@
             };
 
             const isColliding =
-                checkCollision(doriX, doriY, mouse_lx1, mouse_ly1) ||
-                checkCollision(doriX, doriY, mouse_lx2, mouse_ly2) ||
-                checkCollision(doriX, doriY, mouse_lx3, mouse_ly3) ||
-                checkCollision(doriX, doriY, mouse_rx1, mouse_ry1) ||
-                checkCollision(doriX, doriY, mouse_rx2, mouse_ry2) ||
-                checkCollision(doriX, doriY, mouse_rx3, mouse_ry3);
+                checkObjectCollision(doriX, doriY, mouse_lx1, mouse_ly1) ||
+                checkObjectCollision(doriX, doriY, mouse_lx2, mouse_ly2) ||
+                checkObjectCollision(doriX, doriY, mouse_lx3, mouse_ly3) ||
+                checkObjectCollision(doriX, doriY, mouse_rx1, mouse_ry1) ||
+                checkObjectCollision(doriX, doriY, mouse_rx2, mouse_ry2) ||
+                checkObjectCollision(doriX, doriY, mouse_rx3, mouse_ry3);
 
             if (isColliding) {
                 gameOver = true;
             }
-
 
             if (gameOver === true && gmusic === false) {
                 backgroundMusic.pause();
@@ -439,13 +428,12 @@
 
             if (doriY >= 650) {
                 gameXY(100, 250);
-                LeaderboardXY(180,630)
+                LeaderboardXY(180, 630)
                 if (score_save === false) {
                     save_score(player_name, score_value);
                     load_scores();
                     score_save = true;
                 }
-                // Only show scores if they have been loaded
                 if (scoresLoaded) {
                     let y_offset = 664;
                     ctx.font = '24px Arial';
@@ -457,13 +445,11 @@
                         y_offset += 30;
                     }
                 } else {
-                    // Show a loading message while waiting for scores to load
                     ctx.font = '32px Arial';
                     ctx.fillStyle = 'rgb(100, 100, 100)';
                     ctx.fillText('Loading Top 5 scores...', 220, 680);
                 }
-
-                }
+            }
 
             if (gameStart) {
                 drawButtons();
@@ -493,12 +479,41 @@
             requestAnimationFrame(gameLoop);
         };
 
+        // --- NEW ---
+        // This function translates screen coordinates (like from a click or touch)
+        // to the game's internal 700x800 coordinate system, accounting for scaling and letterboxing.
+        function getScaledCoordinates(canvas, event) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = event.clientX ?? event.touches[0].clientX;
+            const clientY = event.clientY ?? event.touches[0].clientY;
+
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            // This more complex calculation is needed for 'object-fit: contain'
+            const displayWidth = rect.width;
+            const displayHeight = rect.height;
+            const internalWidth = canvas.width;
+            const internalHeight = canvas.height;
+
+            const scale = Math.min(displayWidth / internalWidth, displayHeight / internalHeight);
+            const offsetX = (displayWidth - internalWidth * scale) / 2;
+            const offsetY = (displayHeight - internalHeight * scale) / 2;
+
+            const canvasX = (clientX - rect.left - offsetX) / scale;
+            const canvasY = (clientY - rect.top - offsetY) / scale;
+
+            return { x: canvasX, y: canvasY };
+        }
+
+
         const checkCollision = (point, rect) => {
             return point.x >= rect.x && point.x <= rect.x + rect.w &&
                    point.y >= rect.y && point.y <= rect.y + rect.h;
         };
 
         const handleRightMovement = () => {
+            if (gameOver) return;
             jumpSound.play();
             if (doriX <= 523) {
                 if (doriX === 60 || doriX === 261 || doriX === 462) {
@@ -514,16 +529,19 @@
         };
 
         const handleLeftMovement = () => {
+            if (gameOver) return;
             jumpSound.play();
             if (doriX >= 121) {
-                if (doriX === 60 || doriX === 261 || doriX === 462) {
-                    doriX -= 140;
-                    left_show = false;
-                    right_show = true;
-                } else if (doriX === 121 || doriX === 322 || doriX === 523) {
+                // This logic seems reversed in the original code. Let's assume it was intended this way.
+                // Normally, from a right-facing position, you'd expect to go back to a left-facing one.
+                if (doriX === 121 || doriX === 322 || doriX === 523) {
                     doriX -= 61;
                     left_show = true;
                     right_show = false;
+                } else if (doriX === 261 || doriX === 462) { // 60 is out of bounds
+                     doriX -= 140;
+                    left_show = false;
+                    right_show = true;
                 }
             }
         };
@@ -556,15 +574,13 @@
             y_cng = 0;
         });
 
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
+        // --- UPDATED ---
+        // Unified handler for both mouse and touch start events
+        function handleInteractionStart(e) {
+            e.preventDefault(); // Prevents unwanted browser actions like scrolling or zooming on touch
+            const pos = getScaledCoordinates(canvas, e);
 
-            const mouseX = (e.clientX - rect.left) * scaleX;
-            const mouseY = (e.clientY - rect.top) * scaleY;
-            const mousePos = { x: mouseX, y: mouseY };
-            if (checkCollision(mousePos, input_box)) {
+            if (checkCollision(pos, input_box)) {
                 active = true;
                 color = color_active;
             } else {
@@ -572,32 +588,32 @@
                 color = color_inactive;
             }
 
-            if (checkCollision(mousePos, button_start) && !gameStart) {
+            if (checkCollision(pos, button_start) && !gameStart) {
                 if (player_name.trim() !== "") {
                     gameStart = true;
                     backgroundMusic.play();
                 }
             }
 
-            if (checkCollision(mousePos, button_right) && doriX <= 523 && gameStart) {
+            if (checkCollision(pos, button_right) && gameStart) {
                 handleRightMovement();
             }
 
-            if (checkCollision(mousePos, button_left) && doriX >= 121 && gameStart) {
+            if (checkCollision(pos, button_left) && gameStart) {
                 handleLeftMovement();
             }
 
-            if (checkCollision(mousePos, button_up) && gameStart) {
+            if (checkCollision(pos, button_up) && gameStart) {
                 y_cng = -3;
             }
 
-            if (checkCollision(mousePos, button_down) && gameStart) {
+            if (checkCollision(pos, button_down) && gameStart) {
                 y_cng = 3;
             }
 
             if (!gameStart) {
                 for (let { k, rect } of key_buttons) {
-                    if (checkCollision(mousePos, rect)) {
+                    if (checkCollision(pos, rect)) {
                         if (k === "DEL") {
                             player_name = player_name.slice(0, -1);
                         } else if (k === "ENT") {
@@ -613,20 +629,25 @@
                     }
                 }
             }
-        });
+        }
 
-        canvas.addEventListener('mouseup', (e) => {
+        // --- UPDATED ---
+        // Unified handler for both mouse and touch end events
+        function handleInteractionEnd(e) {
+            e.preventDefault();
             y_cng = 0;
-        });
+        }
+
+        canvas.addEventListener('mousedown', handleInteractionStart);
+        canvas.addEventListener('mouseup', handleInteractionEnd);
+        // --- NEW --- Add touch event listeners for mobile support
+        canvas.addEventListener('touchstart', handleInteractionStart);
+        canvas.addEventListener('touchend', handleInteractionEnd);
+
 
         window.onload = () => {
-             // Use requestAnimationFrame for the main game loop
              gameLoop();
         };
     </script>
 </body>
 </html>
-
-
-
-
