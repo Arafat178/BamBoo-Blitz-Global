@@ -13,12 +13,16 @@
             margin: 0;
             background-color: #f0f0f0;
             font-family: 'Arial', sans-serif;
+            overflow: hidden; /* Prevent scrolling on small screens */
         }
         canvas {
             border: 2px solid #333;
             background-color: #fff;
             box-shadow: 0 0 20px rgba(0,0,0,0.2);
             border-radius: 10px;
+            width: 100%; /* Make canvas fill the container width */
+            max-width: 700px; /* Set a max width for large screens */
+            height: auto;
         }
     </style>
 </head>
@@ -33,6 +37,27 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        const setCanvasSize = () => {
+        const desiredWidth = 700;
+        const desiredHeight = 800;
+        const ratio = desiredWidth / desiredHeight;
+        let newWidth, newHeight;
+        if (window.innerWidth / window.innerHeight > ratio) {
+        newHeight = window.innerHeight * 0.9;
+        newWidth = newHeight * ratio;
+        } else {
+        newWidth = window.innerWidth * 0.9;
+        newHeight = newWidth / ratio;
+        }
+        canvas.style.width = `${newWidth}px`;
+        canvas.style.height = `${newHeight}px`;
+        canvas.width = desiredWidth;
+        canvas.height = desiredHeight;
+        };
+
+        window.addEventListener('resize', setCanvasSize);
+        window.addEventListener('load', setCanvasSize);
 
         // Note: The original Python code loaded assets from a local file system.
         // For this web version, we need to load them from a URL.
@@ -606,3 +631,4 @@
     </script>
 </body>
 </html>
+
