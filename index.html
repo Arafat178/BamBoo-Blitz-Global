@@ -19,11 +19,18 @@
             background-color: #fff;
             box-shadow: 0 0 20px rgba(0,0,0,0.2);
             border-radius: 10px;
+             max-width: 100vw; 
+            max-height: 100vh;
+
+            /* The next two lines are the most important for maintaining aspect ratio. 
+               This example uses a 7:8 aspect ratio. Adjust as needed. */
+            width: 100%;
+            height: auto; 
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="700" height="800"></canvas>
+    <canvas id="gameCanvas"></canvas>
 
     <script type="module">
         // Global variables for Firebase configuration provided by the environment
@@ -606,3 +613,4 @@
     </script>
 </body>
 </html>
+
