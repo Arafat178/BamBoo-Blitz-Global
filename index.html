@@ -19,14 +19,14 @@
             background-color: #fff;
             box-shadow: 0 0 20px rgba(0,0,0,0.2);
             border-radius: 10px;
-            width: 90vw; /* Use 90% of the viewport width */
-            height: auto; /* Maintain aspect ratio */
-            max-height: 90vh; /* Prevent it from being taller than the screen */
+            width: 100%; /* Make the canvas fill the width of its container */
+            max-width: 700px; /* But don't let it get bigger than the original size */
+            height: auto;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="700" height="1000"></canvas>
+    <canvas id="gameCanvas"></canvas>
 
     <script type="module">
         // Global variables for Firebase configuration provided by the environment
@@ -36,6 +36,18 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+
+        // Add a resize handler
+        const resizeCanvas = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        };
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initial call
 
         // Note: The original Python code loaded assets from a local file system.
         // For this web version, we need to load them from a URL.
@@ -543,10 +555,12 @@
 
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            const mousePos = { x: mouseX, y: mouseY };
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
 
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+            const mousePos = { x: mouseX, y: mouseY };
             if (checkCollision(mousePos, input_box)) {
                 active = true;
                 color = color_active;
@@ -609,4 +623,5 @@
     </script>
 </body>
 </html>
+
 
