@@ -19,9 +19,12 @@
             background-color: #fff;
             box-shadow: 0 0 20px rgba(0,0,0,0.2);
             border-radius: 10px;
-            width: 100%; /* Make the canvas fill the width of its container */
-            max-width: 700px; /* But don't let it get bigger than the original size */
-            height: auto;
+            /* ✅ Responsive scaling for phone support */
+            width: 100vw;
+            height: 100vh;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* aspect ratio বজায় রাখবে */
         }
     </style>
 </head>
@@ -623,6 +626,7 @@
     </script>
 </body>
 </html>
+
 
 
 
